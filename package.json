@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "description": "n/a",
+  "scripts": {
+    "foo": "node src/index.js"
+  },
+  "author": "lrnzdms",
+  "license": "",
+  "name": "advent2018",
+  "main": "index",
+  "keywords": [],
+  "devDependencies": {
+    "typescript": "^2.9.2"
+  },
+  "dependencies": {}
+}
