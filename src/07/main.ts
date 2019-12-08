@@ -1,25 +1,56 @@
 import { GetNumbers } from "../core";
-const readline = require('readline');
-
 
 class IntReader {
     input:number[];
-    inputPointer:number;
-    output:number[];
-    pointer:number;
-    data:number[];
+    output:(n:number)=>void;
+    private data:number[];
+    private pointer:number;
+    private input_pointer:number;
 
-    read = (immediate:boolean = false, move:boolean = false) => {
+    constructor (data:number[]) {
+        this.data = data.map(d => d);
+        this.pointer = 0;       
+        this.input_pointer = 0;
+    }
+
+    execute = async () => {
+
+        while (true) {
+            const value = this.read(true);
+            if (!value) {
+                const e = "Out of range! pointer: "+this.pointer+" value: "+value+" data: "+this.data;
+                throw new Error(e);
+            }
+            if (value===99) break;
+            await this._executeOpCode(value);
+        }
+        return this.data[0];
+    }
+
+    private _executeOpCode = (value:number) => {
+        switch (value%10) {
+            case 1: return this.op_add();
+            case 2: return this.op_mul();
+            case 3: return this.op_input();
+            case 4: return this.op_output();
+            case 5: return this.op_jump_nzero();
+            case 6: return this.op_jump_zero();
+            case 7: return this.op_less();
+            case 8: return this.op_equals();
+        }
+    }
+
+    private read = (immediate:boolean = false, move:boolean = false) => {
         const v = this.data[this.pointer];
         if (move) ++this.pointer;
         return immediate ? v : this.data[v];
     }
 
-    write = (p:number, v:number) => {
+    private write = (p:number, v:number) => {
         this.data[p] = v;
     }
 
-    modes = () => {
+    private modes = () => {
         let res = Math.floor(this.read(true)/100);
         const modes:boolean[] = []
         while (res!=0) {
@@ -29,7 +60,19 @@ class IntReader {
         return modes;
     }
 
-    op_add = () => {
+    private getInput = async ():Promise<number> => {
+        const timeout = (ms:number) => new Promise(res => setTimeout(res, ms));        
+        let input = this.input[this.input_pointer];
+        while (input===undefined) { 
+            // console.log("waiting for input 50ms")
+            await timeout(50);
+            input = this.input[this.input_pointer];
+        }
+        ++this.input_pointer;
+        return input;
+    }
+
+    private op_add = () => {
         const modes = this.modes();
         ++this.pointer;
         const a = this.read(modes[0], true);
@@ -38,7 +81,7 @@ class IntReader {
         this.write(c, a+b);
     }
 
-    op_mul = () => {
+    private op_mul = () => {
         const modes = this.modes();
         ++this.pointer;
         const a = this.read(modes[0], true);
@@ -47,25 +90,27 @@ class IntReader {
         this.write(c, a*b);
     }
 
-    op_input = () => {
+    private op_input = async ():Promise<void> => {
+        const input = await this.getInput();
         ++this.pointer;
         const p = this.read(true, true);
-        this.write(p, this.input[this.inputPointer]);
-        ++this.inputPointer;
+        this.write(p, input);
+        
+        return Promise.resolve();
     }
 
-    op_output = () => {
+    private op_output = () => {
         ++this.pointer;
         const p = this.read(true, true);
         const out = this.data[p];
         console.log("Output: ", out, "(pointer: "+p+")");
-        this.output.push(out);
+        this.output(out);
     }
 
-    op_jump_nzero = () => this.op_jump(true);
-    op_jump_zero = () => this.op_jump(false);
+    private op_jump_nzero = () => this.op_jump(true);
+    private op_jump_zero = () => this.op_jump(false);
 
-    op_jump = (nzero:boolean) => {
+    private op_jump = (nzero:boolean) => {
         const modes = this.modes();
         ++this.pointer;
         const v = this.read(modes[0], true);
@@ -79,9 +124,9 @@ class IntReader {
         }
     }
 
-    op_less = () => this.op_compare((a,b)=>a<b);
-    op_equals = () => this.op_compare((a,b)=>a===b);
-    op_compare = (f:(a:number,b:number)=>boolean) => {
+    private op_less = () => this.op_compare((a,b)=>a<b);
+    private op_equals = () => this.op_compare((a,b)=>a===b);
+    private op_compare = (f:(a:number,b:number)=>boolean) => {
         const modes = this.modes();
         ++this.pointer;
         const a = this.read(modes[0], true);
@@ -89,40 +134,9 @@ class IntReader {
         const p = this.read(true, true);
         this.write(p, f(a,b)?1:0);
     }
-
-    execute = (data:number[], input:number[]):number[] => {
-        this.data = data.map(d => d);
-        this.pointer = 0;
-        this.input = input.map(i => i);
-        this.inputPointer = 0;
-        this.output = [];
-        this._execute();
-        return this.output;
-    }
-
-    _execute = () => {
-        while (true) {
-            const value = this.read(true);
-            if (!value) throw new Error("Out of range. pointer: "+this.pointer+" value: "+value+" data: "+this.data);
-            if (value===99) break;
-
-            switch (value%10) {
-                case 1: this.op_add(); break;
-                case 2: this.op_mul(); break;
-                case 3: this.op_input(); break;
-                case 4: this.op_output(); break;
-                case 5: this.op_jump_nzero(); break;
-                case 6: this.op_jump_zero(); break;
-                case 7: this.op_less(); break;
-                case 8: this.op_equals(); break;
-            }
-        }
-
-        return this.data[0];
-    }
 }
 
-const perm = (xs: any[]): any[] => {
+const perm = <T>(xs: T[]): T[][] => {
     let ret = [];
 
     for (let i = 0; i < xs.length; i = i + 1) {
@@ -139,21 +153,47 @@ const perm = (xs: any[]): any[] => {
     return ret;
 }
 
-GetNumbers("./src/07/input").then(numbers => { 
-    const machine = new IntReader();
-    const outputs:number[] = [];
-    perm([0,1,2,3,4]).forEach(p => {
+const execute = async (perm:number[], data:number[]) => {
 
-        const a = machine.execute(numbers, [p[0], 0]);
-        const b = machine.execute(numbers, [p[1], a[0]]);
-        const c = machine.execute(numbers, [p[2], b[0]]);
-        const d = machine.execute(numbers, [p[3], c[0]]);
-        const e = machine.execute(numbers, [p[4], d[0]]);
-        console.log("perm ", p, e[0]);
-        outputs.push(e[0]);
+    const a = new IntReader(data);
+    const b = new IntReader(data);
+    const c = new IntReader(data);
+    const d = new IntReader(data);
+    const e = new IntReader(data);
+
+    a.input = [perm[0], 0];
+    b.input = [perm[1]];
+    c.input = [perm[2]];
+    d.input = [perm[3]];
+    e.input = [perm[4]];
+
+    a.output = n => b.input.push(n);
+    b.output = n => c.input.push(n);
+    c.output = n => d.input.push(n);
+    d.output = n => e.input.push(n);
+    e.output = n => a.input.push(n);
+
+    await Promise.all([
+        a.execute(),
+        b.execute(),
+        c.execute(),
+        d.execute(),
+        e.execute(),
+    ]);
+
+    return Promise.resolve(a.input[a.input.length - 1]);
+}
+
+GetNumbers("./src/07/input").then(numbers => { 
+    const promises = perm([5,6,7,8,9]).map(perm => {
+        return execute(perm, numbers);
+    });
+
+    Promise.all(promises).then(results => {
+        const max = results.reduce((res, el) => {
+            return Math.max(res, el);
+        }, 0);
+
+        console.log("max thrust: ", max);
     })
-    const max = outputs.reduce((res, el) => {
-        return Math.max(res, el);
-    }, 0);
-    console.log(max);
 })
