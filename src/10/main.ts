@@ -8,9 +8,17 @@ const execute = (lines:string[]) => {
         }
     })
 
-    // console.log(asteroids);
-    const hitCounts = asteroids.map((fix, fixI) => {
-        const hits:number[] = [];
+    const data = asteroids.map((fix, fixI) => {
+        const hits:{
+            angle:number, 
+            data:{
+                x:number, 
+                y:number, 
+                distance:number,
+                x_base:number,
+                y_base:number
+            }[]
+        }[] = [];
 
         for (let i=0; i<asteroids.length; ++i) {
             if (i===fixI) continue;
@@ -20,34 +28,48 @@ const execute = (lines:string[]) => {
             let x = a.x - fix.x;
             let y = a.y - fix.y;
             
-            // const l = Math.sqrt(x*x + y*y) || 1;
-            // x /= l;
-            // y /= l;
-            // const hit = hits.find(h => h.x===x && h.y===y);
-            // if (!hit) {
-            //     hits.push({x, y});
-            // }
+            let angle = Math.atan2(y, x)*180/Math.PI;
+            if (angle<0) angle += 360;
+            angle += 90;
+            angle = angle%360;
+            // if (x<0) angle += 180;
+            // else if (y<0) angle += 360;
 
-            // const hit = y===0 ? x/Math.abs(x) : x/y;
-
-            const hit = Math.atan2(x, y)*180/Math.PI;
-            if (hits.indexOf(hit)===-1) {
+            let hit = hits.find(h => h.angle===angle);
+            if (!hit) {
+                hit = {angle, data: []};
                 hits.push(hit);
             }
+
+            hit.data.push({x, y, distance: (x*x + y*y), x_base: a.x, y_base: a.y});
         }
 
-        // console.log(hits)
-
-        return hits.length;
+        return hits;
     })
 
-    let max = 0;
-    hitCounts.forEach(f => {
-        max = Math.max(max, f)
+    let index = 0;
+    data.forEach((f,i) => {
+        if (f.length>data[index].length) index = i;
     })
 
-    console.log(max)
+    const asteroid = data[index].sort((a,b) => a.angle<b.angle?-1:1);
+    asteroid.forEach(a => a.data = a.data.sort((a,b) => a.distance<b.distance?1:-1));
+    // console.log(JSON.stringify(asteroid, null, 2));
+    console.log(asteroid.length);
 
+    let killCount = 0;
+    let i = -1;
+    let lastKill;
+
+    while (killCount<200) {
+        ++i;
+        const a = asteroid[i%asteroid.length];
+        if (a.data.length>0) {
+            lastKill = a.data.pop();
+            ++killCount;
+            console.log(killCount, lastKill);
+        }
+    }
 }
 
 GetLines("./src/10/input").then(execute)
